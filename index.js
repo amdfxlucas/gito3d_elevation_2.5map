@@ -283,13 +283,66 @@ const buildingFeatureCollection = new FeatureCollection({
 instance.add(buildingFeatureCollection);
 
 
-https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_Gemarkung_Flur_OpenData/guest?
+const flst_wfs_url = 'https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_Gemarkung_Flur_OpenData/guest?';
+
+const flstVectorSource = new Vector({
+  format: new WFS(), // new XML(), // new GeoJSON(),
+  loader: function(extent, resolution, projection, success, failure) {
+    const feature_name = 'BU.Building';
+    const out_format = 'text/xml'; // application/json   'text/xml; subtype=gml/3.1.1' // ONLY supported by version=2.0.0
+     const proj = projection.getCode();
+     const url = flst_wfs_url + 'SERVICE=WFS&' +
+         'VERSION=1.1.0&REQUEST=GetFeature&typename=' + 
+         feature_name + '&' +
+         `SRSNAME=${proj}&` +
+         // `outputFormat=${out_format}&SRSNAME=${proj}&` +
+         'bbox=' + extent.join(',') + ',' + proj;
+     const xhr = new XMLHttpRequest();
+     xhr.open('GET', url);
+     const onError = function() {
+       flstVectorSource.removeLoadedExtent(extent);
+       failure();
+     }
+     xhr.onerror = onError;
+     xhr.onload = function() {
+       if (xhr.status == 200) {
+        
+         const features = flstVectorSource.getFormat().readFeatures(xhr.responseText);
+         flstVectorSource.addFeatures(features);
+         success(features);
+       } else {
+         onError();
+       }
+     }
+     xhr.send();
+   },
+   strategy: bbox,
+ });
+
+
+ const flstStyle = (feature) => {
+  const properties = feature.getProperties();
+  return {stroke: {color: "green", lineWidth: 2} };
+ };
+
+const flstFeatureCollection = new FeatureCollection({
+  source: flstVectorSource,
+  extent,
+  
+  style: flstStyle,
+  // minLevel: 11,
+  // maxLevel: 11,
+});
+
+instance.add(flstFeatureCollection);
+
 
 // To make sure that the buildings remain correctly displayed whenever
 // one entity become transparent (i.e it's opacity is less than 1), we need
 // to set the render of the feature collection to be greater than the map's.
  map.renderOrder = 0;
 buildingFeatureCollection.renderOrder = 1;
+flstFeatureCollection.renderOrder = 1;
 
 
 // Add a sunlight
@@ -323,14 +376,16 @@ const cameraAltitude = 2000;
 
 // const cameraPosition = new Vector3(extent.west, extent.south, cameraAltitude);
 const cameraPosition = new Vector3(726831.29 , 5746686.22, 2.0); // in front of Haus I
-
+const target = new Vector3(726850.66, 5746686.22, 0.0);
+camera.lookAt(target); // look straight down the road
 camera.position.copy(cameraPosition);
-/*
+
 // Now we can create the `MapControls` with our camera and the DOM element of our scene.
 const controls = new MapControls(camera, instance.domElement);
 
 // Let's set the controls' target to our map center.
-controls.target = extent.centerAsVector3();
+//controls.target = extent.centerAsVector3();
+controls.target = target;
 
 // And specify some parameters for the navigation.
 controls.enableDamping = true;
@@ -340,7 +395,7 @@ controls.maxPolarAngle = Math.PI / 2.3;
 controls.saveState();
 // Now let's register those controls with the instance. The instance will automatically register
 // the event handlers relevant to the navigation in the scene.
-instance.view.setControls(controls); */
+instance.view.setControls(controls);
 
 // ### Optional: Set up the inspector
 
