@@ -16,8 +16,10 @@ import {
   DirectionalLight,
   AmbientLight,
   Color,
+  PerspectiveCamera,
   MathUtils
 } from "three";
+
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 
 import Vector from 'ol/source/Vector.js';
@@ -64,13 +66,10 @@ const xmax = 728736;
 const ymax= 5747497;
 
 //const extent = new Extent("EPSG:25832", xmin, xmax, ymin, ymax); // Dessau-Roßlau OT. Mildensee
-const extent = new Extent("EPSG:25832",726714.8, 5746537.1, 727065.6, 5746918.2); // only CEC company premises
-
-// #### Create the Map object
-
-// Now we can create the Map. The only mandatory parameter is the extent
-// but you can experiment with the other options if you'd like.
-const map = new Map({ extent });
+// const extent = new Extent("EPSG:25832",726714.8, 5746537.1, 727065.6, 5746918.2); // only CEC company premises
+const extent = new  Extent("EPSG:25832", 726784.2, 5746625.4,  726882.9, 5746732.6); // nur Haus I mit strasse und einfahrt
+const map = new Map({ extent,  lighting: {
+    enabled: true} });
 
 instance.add(map);
 
@@ -180,19 +179,6 @@ const extrusionOffsetCallback = (feature) => {
 };
 
 
-const wms_building_source = new WmsSource({ url: building_wms_url,
-  
-  layer:  'BU.Building',  // 'BU.BuildingPart',
-  projection: "EPSG:25832",
-  imageFormat: 'image/png', // 'text/xml', //
-  extent: map.extent
-});
-wms_building_source.initialize();
-
-
-//const buildings = new VectorSource({format: new WFS(),});
-
-
 
 const vectorSource = new Vector({
   format: new WFS(), // new XML(), // new GeoJSON(),
@@ -283,7 +269,9 @@ const buildingStyle = (feature) => {
   };
 };
 
-const featureCollection = new FeatureCollection({
+
+
+const buildingFeatureCollection = new FeatureCollection({
   source: vectorSource,
   extent,
   extrusionOffset: extrusionOffsetCallback,
@@ -292,13 +280,16 @@ const featureCollection = new FeatureCollection({
   // maxLevel: 11,
 });
 
-instance.add(featureCollection);
+instance.add(buildingFeatureCollection);
+
+
+https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_Gemarkung_Flur_OpenData/guest?
 
 // To make sure that the buildings remain correctly displayed whenever
 // one entity become transparent (i.e it's opacity is less than 1), we need
 // to set the render of the feature collection to be greater than the map's.
  map.renderOrder = 0;
-featureCollection.renderOrder = 1;
+buildingFeatureCollection.renderOrder = 1;
 
 
 // Add a sunlight
@@ -306,12 +297,6 @@ const sun = new DirectionalLight("#ffffff", 2);
 sun.position.set(1, 0, 1).normalize();
 sun.updateMatrixWorld(true);
 instance.scene.add(sun);
-
-// We can look below the floor, so let's light also a bit there
-const sun2 = new DirectionalLight("#ffffff", 0.5);
-sun2.position.set(0, 1, 1);
-sun2.updateMatrixWorld();
-instance.scene.add(sun2);
 
 // Add an ambient light
 const ambientLight = new AmbientLight(0xffffff, 0.2);
@@ -322,17 +307,25 @@ instance.scene.add(ambientLight);
 // Giro3D uses the THREE.js controls to navigate in the scene. In our example, we are going to use
 // the `MapControls`, which are perfectly adapted to our need.
 
-// Let's get the THREE camera of our scene.
-const camera = instance.view.camera;
+
+ const camera = instance.view.camera; 
+ camera.near = 0.1; // 0.1 - 1.0
+ camera.far = 1000;
+ camera.aspect = window.innerWidth / window.innerHeight;
+ camera.fov = 55;
+//const camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+//instance.view.camera.copy(camera);
+
 
 // Let's specify the camera position. We will position it in the southwest corner of the map, at an
 // altitude of 2000 meters.
 const cameraAltitude = 2000;
 
-const cameraPosition = new Vector3(extent.west, extent.south, cameraAltitude);
+// const cameraPosition = new Vector3(extent.west, extent.south, cameraAltitude);
+const cameraPosition = new Vector3(726831.29 , 5746686.22, 2.0); // in front of Haus I
 
 camera.position.copy(cameraPosition);
-
+/*
 // Now we can create the `MapControls` with our camera and the DOM element of our scene.
 const controls = new MapControls(camera, instance.domElement);
 
@@ -345,10 +338,9 @@ controls.dampingFactor = 0.2;
 controls.maxPolarAngle = Math.PI / 2.3;
 
 controls.saveState();
-
 // Now let's register those controls with the instance. The instance will automatically register
 // the event handlers relevant to the navigation in the scene.
-instance.view.setControls(controls);
+instance.view.setControls(controls); */
 
 // ### Optional: Set up the inspector
 
