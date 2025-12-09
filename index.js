@@ -24,22 +24,12 @@ import BilFormat from "@giro3d/giro3d/formats/BilFormat.js";
 import Inspector from "@giro3d/giro3d/gui/Inspector.js";
 import TiledImageSource from "@giro3d/giro3d/sources/TiledImageSource.js";
 
-// ### Initialization of the Giro3D instance
-
-// Before creating our map, we must setup Giro3D in our page, by creating an instance.
-
-// The instance is the entry point of a Giro3D context. It needs a DOM element to render its scene.
-
-// #### Register the custom CRS
-
-// Our map uses the [EPSG:3946](https://epsg.io/3946) French coordinate reference system (CRS) that
-// is not built-in into Giro3D's CRS registry.
-
 // ####
 // Let's register a definition for this CRS. The definition is taken from https://epsg.io/3946.proj4.
+// EPSG:25832 (ETRS89 / UTM zone 32N) for Germany ---
 Instance.registerCRS(
-  "EPSG:3946",
-  "+proj=lcc +lat_1=45.25 +lat_2=46.75 +lat_0=46 +lon_0=3 +x_0=1700000 +y_0=5200000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+  "EPSG:25832",
+ "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs",
 );
 
 // Now we are ready to create our instance. Note that the `crs` parameter is necessary to determine
@@ -47,28 +37,17 @@ Instance.registerCRS(
 // We will use the `view` element from our HTML page to initialize the instance.
 const instance = new Instance({
   target: "view",
-  crs: "EPSG:3946",
+  crs: "EPSG:25832",
 });
 
-// ### Create the Map
+// minimum and maximum X (longitude, or easting) and Y (latitude, or northing) values.
 
-// Let's create a map of the city of [Lyon](https://en.wikipedia.org/wiki/Lyon), with satellite
-// imagery and a digital elevation model (DEM).
+const xmin= 725414;
+const ymin= 5745442;
+const xmax = 728736;
+const ymax= 5747497;
 
-// #### Specify the map extent
-
-// A map is a rectangular region of the world that will contain geographic data.
-
-// Let's define a geographic extent (or bounding box) of our map.
-// We initialize the [`Extent`](../apidoc/classes/core.geographic.Extent.html) class,
-// specifying the CRS name (that we just defined above), with the minimum and maximum X (longitude,
-// or easting) and Y (latitude, or northing) values.
-const xmin = 1837816.94334;
-const xmax = 1847692.32501;
-const ymin = 5170036.4587;
-const ymax = 5178412.82698;
-
-const extent = new Extent("EPSG:3946", xmin, xmax, ymin, ymax);
+const extent = new Extent("EPSG:25832", xmin, xmax, ymin, ymax);
 
 // #### Create the Map object
 
@@ -76,7 +55,6 @@ const extent = new Extent("EPSG:3946", xmin, xmax, ymin, ymax);
 // but you can experiment with the other options if you'd like.
 const map = new Map({ extent });
 
-// Let's add the map to the instance.
 instance.add(map);
 
 // #### Create the color layer
@@ -90,28 +68,20 @@ instance.add(map);
 // In Giro3D, layers are the basic components of the Map. They can be either a color layer,
 // or an elevation layer. In both cases, the data comes from a source.
 
-// ##### Specify the data source
-
-// Let's create a source that will pull data from a WMS service.
-// We are using the
-// [`TiledImageSource`](../apidoc/classes/sources.TiledImageSource.html) for that.
-// This source will wrap an OpenLayers source, in this case a `TileWMS`.
+/*curl 'https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest?REQUEST=GetMap&SERVICE=WMS&VERSION=1.3.0&FORMAT=image%2Fjpeg&LAYERS=lsa_lvermgeo_dop20_2&WIDTH=256&HEIGHT=256&CRS=EPSG%3A25832&BBOX=723201.0378281027%2C5746516.35463411%2C732974.0248257797%2C5756289.341631787' --output map3.jpeg */
 const satelliteSource = new TiledImageSource({
   source: new TileWMS({
-    url: "https://data.geopf.fr/wms-r",
-    projection: "EPSG:3946",
+    url: "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest?",
+    projection: "EPSG:25832",
     params: {
-      LAYERS: ["ORTHOIMAGERY.ORTHOPHOTOS"],
+      LAYERS: ["lsa_lvermgeo_dop20_2" ], //["ORTHOIMAGERY.ORTHOPHOTOS"],
       FORMAT: "image/jpeg",
     },
   }),
 });
 
-// ##### Create the layer
+// SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&SERVICE=WMS&VERSION=1.3.0&FORMAT=image%2Fjpeg&STYLES=&TRANSPARENT=true&LAYERS=lsa_lvermgeo_dop20_2&WIDTH=256&HEIGHT=256&CRS=EPSG%3A25832&BBOX=398249.2201553397%2C5747737.97800882%2C399470.8435300493%2C5748959.60138353
 
-// Now we can create the layer. Note that we specify an extent for the layer. This is not
-// strictly required, but since our map is much smaller than the WMS source, we want to avoid
-// processing data that is outside our layer.
 const colorLayer = new ColorLayer({
   name: "satellite",
   source: satelliteSource,
@@ -121,30 +91,17 @@ const colorLayer = new ColorLayer({
 // And add it to the map.
 map.addLayer(colorLayer);
 
-// Note: `addLayer()` is an asynchronous method, because the layer must be prepared before being
-// ready for rendering. We could use the returned promise to wait for the end of the preprocessing
-// step, but we don't need that in our example.
-
-// #### Creation of the elevation layer
-
-// Creating an elevation layer is a very similar process to the color layer : we initialize the
-// source, then create the layer and add it to the map.
-
-// The only difference is that we are going to use an
-// [`ElevationLayer`](../apidoc/classes/core.layer.ElevationLayer.html).
-
-// Contrary to the color layer, the elevation layer does not produce any color information on the
-// map, but it rather deforms the map to display the terrain (hence the name 2.5D map).
-
 // Let's create a WMS source for this layer.
 const demSource = new TiledImageSource({
   source: new TileWMS({
-    url: "https://data.geopf.fr/wms-r",
-    projection: "EPSG:3946",
+    url: 'https://www.geodatenportal.sachsen-anhalt.de/wss/service/INSPIRE_LVermGeo_ATKIS_EL/guest?',
+    projection: "EPSG:25832",
     crossOrigin: "anonymous",
     params: {
-      LAYERS: ["ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES"],
-      FORMAT: "image/x-bil;bits=32",
+      LAYERS: [ 'EL_ElevationGridCoverage'
+                 // "ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES"
+              ],
+      FORMAT: "image/png",//"image/x-bil;bits=32",
     },
   }),
   format: new BilFormat(),
@@ -157,20 +114,22 @@ const demSource = new TiledImageSource({
 // of the layer, but rather use the elevation data to deform the
 // terrain mesh. Since the terrain mesh has a much lower resolution
 // than the terrain textures, we don't want to waste resources.
+/*
+ curl --output map.png 'https://www.geodatenportal.sachsen-anhalt.de/wss/service/INSPIRE_LVermGeo_ATKIS_EL/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image%2Fpng&STYLES=&TRANSPARENT
+=true&LAYERS=EL_ElevationGridCoverage&WIDTH=256&HEIGHT=256&CRS=EPSG%3A25832&BBOX=390919.47990708053%2C5746516.35463411%2C410465.4539024347%2C5766062.328629464'
+ */
+/*
 const elevationLayer = new ElevationLayer({
   name: "dem",
   resolutionFactor: 1 / 8,
   extent: map.extent,
   source: demSource,
-});
+}); */
 
-// ##### Add the layer
 
-// Now we are ready to add our layer to the map.
-map.addLayer(elevationLayer);
+//map.addLayer(elevationLayer);
 
 // ### Set the camera and navigation controls
-
 // Giro3D uses the THREE.js controls to navigate in the scene. In our example, we are going to use
 // the `MapControls`, which are perfectly adapted to our need.
 
@@ -210,17 +169,3 @@ instance.view.setControls(controls);
 // This supposes that we have a `div` ready to host our inspector.
 
 Inspector.attach("inspector", instance);
-
-// ### The StatusBar
-
-// This widget is no part of the Giro3D library, but is used in the examples
-// to display various informations about the scene, such as the geographic
-// coordinates of the mouse cursor.
-
-// Let's initialize the coordinate bar widget on our instance.
-
-// ### Moving around
-
-// Use the mouse the navigate in the scene and observe the map updating with fresh data.
-
-// [See the final result](../examples/getting-started.html).
